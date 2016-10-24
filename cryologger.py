@@ -45,7 +45,7 @@ class Application:
         self.g('set terminal qt')
         self.g('set xdata time')
         self.g('set timefmt "%s"')
-        self.g('set format x "%m/%d/%y\\n%H:%M:%S"')
+        self.g('set format x "%d/%m/%y\\n%H:%M:%S"')
 
     def joinlogs(self):
         date1 = datetime.strptime(self.startdate.get(), '%d-%m-%Y')
