@@ -60,6 +60,8 @@ class Application:
         self.mylog = concat.joinfiles(date1,date2,self.loglocation.get())
         self.plotbutton.config(state="normal")
         myvars = self.mylog.getAllvars()
+        self.listaxis1.delete(0, tk.END)
+        self.listaxis2.delete(0, tk.END)
         for ss in myvars:
             self.listaxis1.insert(tk.END, ss)
             self.listaxis2.insert(tk.END, ss)
