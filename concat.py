@@ -1,12 +1,13 @@
 import datetime
 import os
 import sys
+import os.path
 
 class bfdata:
     def __init__(self,dt1,dt2,ffT,ffP):
 
-        self.ffT = ffT
-        self.ffP = ffP
+        self.ffT = os.path.normpath(ffT)
+        self.ffP = os.path.normpath(ffP)
         outfile = open(ffT,"r")
         varline = outfile.readline()
         self.variablesT = varline[1:].split(", ")
@@ -74,6 +75,7 @@ def joinfiles(datetime1,datetime2,location = "",type="BF"):
     #Will be a subfolder of the main script location (I hope...)
     logfoldername = 'joinedlogs'
     logfoldername = os.path.abspath(logfoldername) #convert to absolute path
+    location = os.path.normpath(location)
     #Create the datafile
     if not os.path.exists(logfoldername):  #Checks concatenated log folder existance and creates it if it doesn't exist
         os.makedirs(logfoldername)
@@ -114,7 +116,7 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername):
         flist = []
         try:
             for fn in fnames:
-                flist.append(open(location + '/' + dirname+'/'+fn + ' ' + dirname + '.log','r'))
+                flist.append(open(os.path.normpath(location + '/' + dirname+'/'+fn + ' ' + dirname + '.log'),'r'))
         except FileNotFoundError as err:
             print('Could not open T in date ' + dirname + ': {0}'.format(err))
             continue
@@ -123,7 +125,9 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername):
             line = line.split(',')
             line = line[0] + ' ' + line[1]
             mydatetime = datetime.datetime.strptime(line,'%d-%m-%y %H:%M:%S')
-            outfile.write(mydatetime.strftime('%s'))
+            t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
+            # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
+            outfile.write(str(t))
             for line in lines:
                 line = line.split(',')
                 x = float(line[2])
@@ -139,7 +143,7 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername):
     for mydate in date_list:
         dirname = mydate.strftime("%y-%m-%d")
         try:
-            fileP = open(location + '/' + dirname+'/'+ 'Maxigauge' + ' ' + dirname + '.log','r')
+            fileP = open(os.path.normpath(location + '/' + dirname+'/'+ 'Maxigauge' + ' ' + dirname + '.log'),'r')
         except FileNotFoundError as err:
             print('Could not open P in date ' + dirname + ': {0}'.format(err))
             continue
@@ -147,7 +151,9 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername):
             line = line.strip()
             line = line.split(',')
             mydatetime = datetime.datetime.strptime(line[0] + ' ' + line[1],'%d-%m-%y %H:%M:%S')
-            outfile.write(mydatetime.strftime('%s'))
+            t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
+            # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
+            outfile.write(str(t))
             dataline = [float(x) for x in line[5::6] ]
             for x in dataline:
                 outfile.write(', %.2e' % x)
