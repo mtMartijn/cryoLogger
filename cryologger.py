@@ -6,11 +6,8 @@ import Gnuplot
 import time
 import concat
 import sys
-
-'''
-        self.g('set terminal qt')
-
-'''
+from pygubu.builder import ttkstdwidgets
+import configparser
 
 class Application:
     def __init__(self, master):
@@ -40,7 +37,17 @@ class Application:
         self.listaxis2 = self.builder.get_object('listaxis2')
         self.everyentry = self.builder.get_object('everyentry')
         self.gnuform = self.builder.get_object('gnuplotformentry')
-
+        
+        config = configparser.ConfigParser()
+        config.sections()
+        config.read('cryologger.ini')
+        self.loglocation.delete(0,tk.END)
+        self.loglocation.insert(0,config['DEFAULT']['loglocation'])
+        self.startdate.delete(0,tk.END)
+        self.startdate.insert(0,config['DEFAULT']['startdate'])
+        self.enddate.delete(0,tk.END)
+        self.enddate.insert(0,config['DEFAULT']['enddate'])
+        
         self.g = Gnuplot.Gnuplot(debug=1)
         self.g('set terminal qt')
         self.g('set xdata time')

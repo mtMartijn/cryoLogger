@@ -73,7 +73,7 @@ def joinfiles(datetime1,datetime2,location = "",type="BF"):
 
     #Create folder for joined logs if it doesn't exist
     #Will be a subfolder of the main script location (I hope...)
-    logfoldername = 'joinedlogs'
+    logfoldername = location + '/joinedlogs'
     logfoldername = os.path.abspath(logfoldername) #convert to absolute path
     location = os.path.normpath(location)
     #Create the datafile
