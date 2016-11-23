@@ -28,7 +28,7 @@ class bfdata:
 
         self.dt1 = dt1
         self.dt2 = dt2
-
+     
     def getrealstart(self): #Gets the datetime for the first point in the file
         with open(self.ffT) as fp:
             fp.readline()
@@ -67,7 +67,49 @@ class bfdata:
                 print('Variable not found')
         
 
-def joinfiles(datetime1,datetime2,location = "",type="BF"):
+
+class tritondata:
+    def __init__(self,dt1,dt2,ff):
+
+        self.ff = os.path.normpath(ff)
+        outfile = open(ff,"r")
+        varline = outfile.readline()
+        self.variables = varline[1:].split(", ")
+        self.nn = 0
+        for i,l in enumerate(outfile):
+            self.nn = i+1
+        outfile.close()
+        print('Number of points: ',self.nn)
+        self.dt1 = dt1
+        self.dt2 = dt2
+
+    def getrealstart(self): #Gets the datetime for the first point in the file
+        with open(self.ff) as fp:
+            fp.readline()
+            mystr = fp.readline()
+            mystr = mystr.split(", ")[0]
+            ts = int(mystr)
+            mydt = datetime.datetime.fromtimestamp(ts)
+        return mydt
+
+    def getvars(self):
+        with open(self.ff,'r') as myfile:
+            varline = myfile.readline()
+            varline = varline.strip().strip('#')
+            varline = varline.split(', ')
+            return varline
+    def getFileCol(self,variable):
+        try:
+            idx = self.getvars().index(variable)
+            return (self.ff,idx+1) #add 1 for Gnuplot index conventions
+        except:
+            print('Variable not found')
+            
+    def getAllvars(self):
+        return self.getvars()
+        
+
+def joinfiles(datetime1,datetime2,location = "",type="Triton"):
     if(datetime1 > datetime2): #Check that datetime1 is earlier than datetime2 and correct if necessary
         datetime1, datetime2 = datetime2, datetime1
 
@@ -82,9 +124,50 @@ def joinfiles(datetime1,datetime2,location = "",type="BF"):
 
     if type == "BF":
         mydata = BFjoinfiles(datetime1,datetime2,location,logfoldername)
+    elif type == "Triton":
+        mydata = Tritonjoinfiles(datetime1,datetime2,location,logfoldername)
     return mydata
 
 
+def Tritonjoinfiles(datetime1,datetime2,location,logfoldername):
+    filename = os.path.join(logfoldername, 'Triton' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
+    #Check if logs are already concatenated and read variable line
+    if os.path.isfile(filename):
+        print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
+        mydata = tritondata(datetime1,datetime2,filename)
+        return mydata
+    print("Starting complete logfile generation for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + '...')
+
+
+    td = datetime2.date()-datetime1.date()
+    td = td.days
+    date_list = [datetime1.date() + datetime.timedelta(days=x) for x in range(0, td+1)]
+
+    outfile = open(filename,'w')
+    for ii,mydate in enumerate(date_list):
+        dirname = mydate.strftime("%Y-%m-%d")
+        try:
+            ff = open(os.path.normpath(location + '/' + dirname+'/log_' + dirname + '.dat'),'r')
+        except FileNotFoundError as err:
+            print('Could not open log for date ' + dirname + ': {0}'.format(err))
+            continue
+        if ii==0:
+            varline = ff.readline()
+            outfile.write(varline + '\n')
+            vars = varline.strip('\n').strip('# ')
+            vars = vars.split(', ')
+            print(vars)
+        for line in ff:
+            outfile.write(line)
+        ff.close()
+    outfile.close()
+
+    mydata = tritondata(datetime1,datetime2,filename)
+
+    return mydata
+    pass
+    
+    
 def BFjoinfiles(datetime1,datetime2,location,logfoldername):
     
     filenameT = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
