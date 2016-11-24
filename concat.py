@@ -199,27 +199,48 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
     outfile.write("#" + titlelineT + '\n')
     for mydate in date_list:
         dirname = mydate.strftime("%y-%m-%d")
-        flist = []
-        try:
-            for fn in fnames:
+        flist = [] #list of open files
+        found = [] #list of boolean of present files
+        for fn in fnames:
+            try: #I add true to found for every file
+                found.append(True)
                 flist.append(open(os.path.normpath(location + '/' + dirname+'/'+fn + ' ' + dirname + '.log'),'r'))
-        except FileNotFoundError as err:
-            print('Could not open T in date ' + dirname + ': {0}'.format(err))
-            continue
+            except FileNotFoundError as err:
+                print('Could not open T in date ' + dirname + ': {0}'.format(err))
+                found[-1]=False #if file is not found, replace True with False
+                continue
+        
+        # If all elements of files present are false, skip this day
+        filespresent = False
+        for vv in found:
+            if vv:
+                filespresent = True
+                break #at least one file is present for this day
+        if not filespresent:
+            continue #skip this day
+        
+        #flist is in general shorter than found (found should always be len(fnames) while flist will only have found files)
         for lines in zip(*flist):
+            #Get the timestamp from the first file and add to outline
             line = lines[0].strip()
             line = line.split(',')
             line = line[0] + ' ' + line[1]
             mydatetime = datetime.datetime.strptime(line,'%d-%m-%y %H:%M:%S')
             t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
             # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
-            outfile.write(str(t))
-            for line in lines:
-                line = line.split(',')
-                x = float(line[2])
-                outfile.write(', %.5e' % x)
-
-            outfile.write('\n')
+            outline = str(t)
+            ii = 0 #counter for lines (which has the same length as flist)
+            for vv in found:
+                if vv: #if file was present, process line and increment ii for the next element
+                    line = lines[ii]
+                    ii+=1
+                    line = line.split(',')
+                    x = float(line[2])
+                    outline = outline + ', %.5e' % x
+                elif not vv: #if file was not present, leave ii at its current value and write -1. to line
+                    outline = outline + ', %.5e' % -1.
+            outfile.write(outline) #write line to file
+            outfile.write('\n') #next line
         for f in flist:
             f.close()
     outfile.close()
