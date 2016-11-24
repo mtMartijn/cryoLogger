@@ -37,7 +37,9 @@ class Application:
         self.listaxis2 = self.builder.get_object('listaxis2')
         self.everyentry = self.builder.get_object('everyentry')
         self.gnuform = self.builder.get_object('gnuplotformentry')
-        
+        self.forcelog = self.builder.get_variable('forcelog')
+        self.logtype = self.builder.get_variable('logtype')
+               
         config = configparser.ConfigParser()
         config.sections()
         config.read('cryologger.ini')
@@ -47,6 +49,8 @@ class Application:
         self.startdate.insert(0,config['DEFAULT']['startdate'])
         self.enddate.delete(0,tk.END)
         self.enddate.insert(0,config['DEFAULT']['enddate'])
+        self.logtype.set(config['DEFAULT']['logtype'])
+        self.forcelog.set(int(config['DEFAULT']['forcelog']))
         
         self.g = Gnuplot.Gnuplot(debug=1)
         self.g('set terminal qt')
@@ -57,7 +61,7 @@ class Application:
     def joinlogs(self):
         date1 = datetime.strptime(self.startdate.get(), '%d-%m-%Y')
         date2 = datetime.strptime(self.enddate.get(), '%d-%m-%Y')
-        self.mylog = concat.joinfiles(date1,date2,self.loglocation.get())
+        self.mylog = concat.joinfiles(date1,date2,self.loglocation.get(),type=self.logtype.get(),force=self.forcelog.get())
         self.plotbutton.config(state="normal")
         myvars = self.mylog.getAllvars()
         self.listaxis1.delete(0, tk.END)

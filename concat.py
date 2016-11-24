@@ -109,7 +109,7 @@ class tritondata:
         return self.getvars()
         
 
-def joinfiles(datetime1,datetime2,location = "",type="Triton"):
+def joinfiles(datetime1,datetime2,location = "",type="Triton",force=0):
     if(datetime1 > datetime2): #Check that datetime1 is earlier than datetime2 and correct if necessary
         datetime1, datetime2 = datetime2, datetime1
 
@@ -123,19 +123,20 @@ def joinfiles(datetime1,datetime2,location = "",type="Triton"):
         os.makedirs(logfoldername)
 
     if type == "BF":
-        mydata = BFjoinfiles(datetime1,datetime2,location,logfoldername)
+        mydata = BFjoinfiles(datetime1,datetime2,location,logfoldername,force)
     elif type == "Triton":
-        mydata = Tritonjoinfiles(datetime1,datetime2,location,logfoldername)
+        mydata = Tritonjoinfiles(datetime1,datetime2,location,logfoldername,force)
     return mydata
 
 
-def Tritonjoinfiles(datetime1,datetime2,location,logfoldername):
+def Tritonjoinfiles(datetime1,datetime2,location,logfoldername,force):
     filename = os.path.join(logfoldername, 'Triton' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
-    #Check if logs are already concatenated and read variable line
-    if os.path.isfile(filename):
-        print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
-        mydata = tritondata(datetime1,datetime2,filename)
-        return mydata
+    if force==0: #if force is set to 0, check if logs are already concatenated and read variable line
+        if os.path.isfile(filename):
+            print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
+            mydata = tritondata(datetime1,datetime2,filename)
+            return mydata
+      
     print("Starting complete logfile generation for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + '...')
 
 
@@ -168,16 +169,18 @@ def Tritonjoinfiles(datetime1,datetime2,location,logfoldername):
     pass
     
     
-def BFjoinfiles(datetime1,datetime2,location,logfoldername):
+def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
     
     filenameT = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
     filenameP = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.P.log')
 
     #Check if logs are already concatenated and read variable line
-    if os.path.isfile(filenameT) or os.path.isfile(filenameP):
-        print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
-        mydata = bfdata(datetime1,datetime2,filenameT,filenameP)
-        return mydata
+    if force==0:
+        if os.path.isfile(filenameT) or os.path.isfile(filenameP):
+            print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
+            mydata = bfdata(datetime1,datetime2,filenameT,filenameP)
+            return mydata
+
     print("Starting complete logfile generation for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + '...')
 
 
