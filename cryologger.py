@@ -24,7 +24,8 @@ class Application:
         callbacks = {
             'joinlogs': self.joinlogs,
             'isdate': self.isdate,
-            'plot': self.plot
+            'plot': self.plot,
+            'gnucommand': self.gnucommand
         }
 
         builder.connect_callbacks(callbacks)
@@ -33,9 +34,11 @@ class Application:
         self.enddate = self.builder.get_object('enddate')
         self.loglocation = self.builder.get_object('loglocation')
         self.plotbutton = self.builder.get_object('plotbutton')
+        self.gnurunbutton = self.builder.get_object('gnurunbutton')
         self.listaxis1 = self.builder.get_object('listaxis1')
         self.listaxis2 = self.builder.get_object('listaxis2')
         self.everyentry = self.builder.get_object('everyentry')
+        self.gnucommandentry = self.builder.get_object('gnucommandentry')
         self.gnuform = self.builder.get_object('gnuplotformentry')
         self.forcelog = self.builder.get_variable('forcelog')
         self.logtype = self.builder.get_variable('logtype')
@@ -63,6 +66,7 @@ class Application:
         date2 = datetime.strptime(self.enddate.get(), '%d-%m-%Y')
         self.mylog = concat.joinfiles(date1,date2,self.loglocation.get(),type=self.logtype.get(),force=self.forcelog.get())
         self.plotbutton.config(state="normal")
+        self.gnurunbutton.config(state="normal")
         myvars = self.mylog.getAllvars()
         self.listaxis1.delete(0, tk.END)
         self.listaxis2.delete(0, tk.END)
@@ -89,6 +93,7 @@ class Application:
         self.g("set autoscale y")
         self.g("set autoscale y2")
         self.g("set xlabel 'Time'")
+        self.g('set ytics nomirror')
         try:
             s = vars1[0]
             axistitle = s[s.find("(")+1:s.find(")")]
@@ -128,7 +133,12 @@ class Application:
 #        print(type(entry))
         print(self.startdate.get())
         return True
-
+    def gnucommand(self):
+        mycomm = str(self.gnucommandentry.get('1.0','end'))
+        comlist = mycomm.split('\n')
+        for com in comlist:
+            self.g(com)
+        return
 if __name__ == '__main__':
     root = tk.Tk()
     root.wm_title("Cryologger")
