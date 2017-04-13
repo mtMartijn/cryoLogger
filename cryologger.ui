@@ -23,7 +23,6 @@
         <child>
           <object class="tk.Entry" id="startdate">
             <property name="text" translatable="yes">1-1-2005</property>
-            <property name="validate">focus</property>
             <property name="validatecommand">isdate</property>
             <layout>
               <property name="column">1</property>

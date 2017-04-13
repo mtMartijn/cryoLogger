@@ -4,10 +4,13 @@ import sys
 import os.path
 
 class bfdata:
-    def __init__(self,dt1,dt2,ffT,ffP):
+    def __init__(self,dt1,dt2,ffT,ffP,ffFlow,ffComp):
 
         self.ffT = os.path.normpath(ffT)
         self.ffP = os.path.normpath(ffP)
+        self.ffFlow = os.path.normpath(ffFlow)
+        self.ffComp = os.path.normpath(ffComp)
+        
         outfile = open(ffT,"r")
         varline = outfile.readline()
         self.variablesT = varline[1:].split(", ")
@@ -25,6 +28,24 @@ class bfdata:
             self.nnP = i+1
         outfile.close()
         print('Pressure points: ',self.nnP)
+        
+        outfile = open(ffFlow,"r")
+        varline = outfile.readline()
+        self.variablesFlow = varline[1:].split(", ")
+        self.nnFlow = 0
+        for i,l in enumerate(outfile):
+            self.nnFlow = i+1
+        outfile.close()
+        print('Flow meter points: ',self.nnFlow)
+        
+        outfile = open(ffComp,"r")
+        varline = outfile.readline()
+        self.variablesComp = varline[1:].split(", ")
+        self.nnComp = 0
+        for i,l in enumerate(outfile):
+            self.nnComp = i+1
+        outfile.close()
+        print('Compressor points: ',self.nnComp)
 
         self.dt1 = dt1
         self.dt2 = dt2
@@ -37,7 +58,6 @@ class bfdata:
             ts = int(mystr)
             mydt = datetime.datetime.fromtimestamp(ts)
         return mydt
-
     def getTvars(self):
         with open(self.ffT,'r') as myfile:
             varline = myfile.readline()
@@ -50,12 +70,23 @@ class bfdata:
             varline = varline.strip().strip('#')
             varline = varline.split(', ')
             return varline
+    def getFlowvars(self):
+        with open(self.ffFlow,'r') as myfile:
+            varline = myfile.readline()
+            varline = varline.strip().strip('#')
+            varline = varline.split(', ')
+            return varline
+    def getCompvars(self):
+        with open(self.ffComp,'r') as myfile:
+            varline = myfile.readline()
+            varline = varline.strip().strip('#')
+            varline = varline.split(', ')
+            return varline
     def getAllvars(self):
-        varline = self.getTvars() + self.getPvars()
+        varline = self.getTvars() + self.getPvars() + self.getFlowvars() + self.getCompvars()
         print(varline)
         return varline
     def getFileCol(self,variable):
-        
         try:
             idx = self.getTvars().index(variable)
             return (self.ffT,idx+1) #add 1 for Gnuplot index conventions
@@ -64,7 +95,15 @@ class bfdata:
                 idx = self.getPvars().index(variable)
                 return (self.ffP,idx+1) #add 1 for Gnuplot index conventions
             except:
-                print('Variable not found')
+                try:
+                    idx = self.getFlowvars().index(variable)
+                    return (self.ffFlow,idx+1) #add 1 for Gnuplot index conventions
+                except:
+                    try:
+                        idx = self.getCompvars().index(variable)
+                        return (self.ffComp,idx+1) #add 1 for Gnuplot index conventions
+                    except:
+                        print('Variable not found')
         
 
 
@@ -173,12 +212,15 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
     
     filenameT = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
     filenameP = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.P.log')
+    filenameFlow = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.Flow.log')
+    filenameComp = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.Comp.log')
 
-    #Check if logs are already concatenated and read variable line
+
+#    Check if logs are already concatenated and read variable line
     if force==0:
         if os.path.isfile(filenameT) or os.path.isfile(filenameP):
             print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
-            mydata = bfdata(datetime1,datetime2,filenameT,filenameP)
+            mydata = bfdata(datetime1,datetime2,filenameT,filenameP,filenameFlow,filenameComp)
             return mydata
 
     print("Starting complete logfile generation for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + '...')
@@ -194,6 +236,10 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
     fnames = [('CH%1d %s' % (x,y)) for x in chs for y in rt]
     titlelineT = 'Time (s), ' + ', '.join([('CH%1d %s (%s)' % (x,y,z)) for x in chs for y,z in zip(rt,units)])
     titlelineP = 'Time Maxigauge (s), ' + ', '.join(['Pressure CH%d (mbar)' % x for x in range(1,7)])
+    titlelineFlow = 'Time Flow (s), Flow (mmol/s)'
+    compvars = ['cptempwi','cptempwo','cptemph','cptempo','cpttime','cperrcode','cpavgl','cpavgh','ctrl_pres']
+    compunits = ['C','C','C','C','min','','psi','psi','']
+    titlelineComp = 'Time Comp (s), ' + ', '.join(['{} ({})'.format(a,b) for a,b in zip(compvars,compunits)])
     
     outfile = open(filenameT,'w')
     outfile.write("#" + titlelineT + '\n')
@@ -252,8 +298,11 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
         try:
             fileP = open(os.path.normpath(location + '/' + dirname+'/'+ 'Maxigauge' + ' ' + dirname + '.log'),'r')
         except FileNotFoundError as err:
-            print('Could not open P in date ' + dirname + ': {0}'.format(err))
-            continue
+            try:
+                fileP = open(os.path.normpath(location + '/' + dirname+'/'+ 'maxigauge' + ' ' + dirname + '.log'),'r')
+            except FileNotFoundError as err:
+                print('Could not open P in date ' + dirname + ': {0}'.format(err))
+                continue
         for line in fileP:
             line = line.strip()
             line = line.split(',')
@@ -267,7 +316,51 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
             outfile.write('\n')
         fileP.close()
     outfile.close()
+    
+    outfile = open(filenameFlow,'w')
+    outfile.write("#" + titlelineFlow + '\n')
+    for mydate in date_list:
+        dirname = mydate.strftime("%y-%m-%d")
+        try:
+            fileFlow = open(os.path.normpath(location + '/' + dirname+'/'+ 'Flowmeter' + ' ' + dirname + '.log'),'r')
+        except FileNotFoundError as err:
+            print('Could not open Flow in date ' + dirname + ': {0}'.format(err))
+            continue
+        for line in fileFlow:
+            line = line.strip()
+            line = line.split(',')
+            mydatetime = datetime.datetime.strptime(line[0] + ' ' + line[1],'%d-%m-%y %H:%M:%S')
+            t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
+            # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
+            outfile.write(str(t))
+            outfile.write(', %.4e' % float(line[2]))
+            outfile.write('\n')
+        fileFlow.close()
+    outfile.close()
+    
+    outfile = open(filenameComp,'w')
+    outfile.write("#" + titlelineComp + '\n')
+    for mydate in date_list:
+        dirname = mydate.strftime("%y-%m-%d")
+        try:
+            fileComp = open(os.path.normpath(location + '/' + dirname+'/'+ 'Status' + '_' + dirname + '.log'),'r')
+        except FileNotFoundError as err:
+            print('Could not open Comp in date ' + dirname + ': {0}'.format(err))
+            continue
+        for line in fileComp:
+            line = line.strip()
+            line = line.split(',')
+            mydatetime = datetime.datetime.strptime(line[0] + ' ' + line[1],'%d-%m-%y %H:%M:%S')
+            t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
+            # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
+            outfile.write(str(t))
+            dataline = [float(x) for x in line[3::2] ]
+            for x in dataline:
+                outfile.write(', %.4e' % x)
+            outfile.write('\n')
+        fileComp.close()
+    outfile.close()
 
-    mydata = bfdata(datetime1,datetime2,filenameT,filenameP)
+    mydata = bfdata(datetime1,datetime2,filenameT,filenameP,filenameFlow,filenameComp)
 
     return mydata
