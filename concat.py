@@ -4,21 +4,29 @@ import sys
 import os.path
 
 class bfdata:
-    def __init__(self,dt1,dt2,ffT,ffP,ffFlow,ffComp):
+    def __init__(self,dt1,dt2,ffsT,ffP,ffFlow,ffComp):
 
-        self.ffT = os.path.normpath(ffT)
+        self.ffsT = [os.path.normpath(x) for x in ffsT]
         self.ffP = os.path.normpath(ffP)
         self.ffFlow = os.path.normpath(ffFlow)
         self.ffComp = os.path.normpath(ffComp)
+
+        self.ffT = ffsT[0]
         
-        outfile = open(ffT,"r")
-        varline = outfile.readline()
-        self.variablesT = varline[1:].split(", ")
-        self.nnT = 0
-        for i,l in enumerate(outfile):
-            self.nnT = i+1
-        outfile.close()
-        print('Temperature points: ',self.nnT)
+        chs = [1,2,5,6]
+        self.variablesT = []
+        self.nnT = []
+        for i,ffT in zip(chs,self.ffsT):
+            print(ffT)
+            outfile = open(ffT,"r")
+            varline = outfile.readline()
+            self.variablesT.append(varline[1:].split(", "))
+            nnT = 0
+            for i,l in enumerate(outfile):
+                nnT = i+1
+            self.nnT.append(nnT)
+            outfile.close()
+        print('Temperature points per channel: ',self.nnT)
 
         outfile = open(ffP,"r")
         varline = outfile.readline()
@@ -59,11 +67,14 @@ class bfdata:
             mydt = datetime.datetime.fromtimestamp(ts)
         return mydt
     def getTvars(self):
-        with open(self.ffT,'r') as myfile:
-            varline = myfile.readline()
-            varline = varline.strip().strip('#')
-            varline = varline.split(', ')
-            return varline
+        fullvarline = []
+        for ffT in self.ffsT:
+            with open(ffT,'r') as myfile:
+                varline = myfile.readline()
+                varline = varline.strip().strip('#')
+                varline = varline.split(', ')
+                fullvarline = fullvarline + varline
+        return fullvarline
     def getPvars(self):
         with open(self.ffP,'r') as myfile:
             varline = myfile.readline()
@@ -89,7 +100,9 @@ class bfdata:
     def getFileCol(self,variable):
         try:
             idx = self.getTvars().index(variable)
-            return (self.ffT,idx+1) #add 1 for Gnuplot index conventions
+            i = idx % 3
+            j = int(idx/3.)
+            return (self.ffsT[j],i+1) #add 1 for Gnuplot index conventions
         except:
             try:
                 idx = self.getPvars().index(variable)
@@ -210,7 +223,13 @@ def Tritonjoinfiles(datetime1,datetime2,location,logfoldername,force):
     
 def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
     
-    filenameT = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
+    #BF logs everything in separate files and times are not guaranteed to line up (especially if sensors are turned off)...  This means that a separate file is needed for each temperature channel.
+    filenamesT = []
+    chs = [1,2,5,6]
+    for i in chs:
+        filenameT = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.CH{}.log'.format(i))
+        filenamesT.append(filenameT)
+#    filenameT = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.T.log')
     filenameP = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.P.log')
     filenameFlow = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.Flow.log')
     filenameComp = os.path.join(logfoldername, 'BF' + datetime1.strftime("%y%m%d_") + datetime2.strftime("%y%m%d") + '.Comp.log')
@@ -218,9 +237,9 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
 
 #    Check if logs are already concatenated and read variable line
     if force==0:
-        if os.path.isfile(filenameT) or os.path.isfile(filenameP):
+        if os.path.isfile(filenamesT[0]) or os.path.isfile(filenameP):
             print("Files for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + ' already exist')
-            mydata = bfdata(datetime1,datetime2,filenameT,filenameP,filenameFlow,filenameComp)
+            mydata = bfdata(datetime1,datetime2,filenamesT,filenameP,filenameFlow,filenameComp)
             return mydata
 
     print("Starting complete logfile generation for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + '...')
@@ -232,64 +251,65 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
 
     rt = ['R', 'T']
     units = ['Ohm', 'K']
-    chs = [1,2,5,6]
-    fnames = [('CH%1d %s' % (x,y)) for x in chs for y in rt]
-    titlelineT = 'Time (s), ' + ', '.join([('CH%1d %s (%s)' % (x,y,z)) for x in chs for y,z in zip(rt,units)])
+    #chs = [1,2,5,6]
     titlelineP = 'Time Maxigauge (s), ' + ', '.join(['Pressure CH%d (mbar)' % x for x in range(1,7)])
     titlelineFlow = 'Time Flow (s), Flow (mmol/s)'
     compvars = ['cptempwi','cptempwo','cptemph','cptempo','cpttime','cperrcode','cpavgl','cpavgh','ctrl_pres']
     compunits = ['C','C','C','C','min','','psi','psi','']
     titlelineComp = 'Time Comp (s), ' + ', '.join(['{} ({})'.format(a,b) for a,b in zip(compvars,compunits)])
     
-    outfile = open(filenameT,'w')
-    outfile.write("#" + titlelineT + '\n')
-    for mydate in date_list:
-        dirname = mydate.strftime("%y-%m-%d")
-        flist = [] #list of open files
-        found = [] #list of boolean of present files
-        for fn in fnames:
-            try: #I add true to found for every file
-                found.append(True)
-                flist.append(open(os.path.normpath(location + '/' + dirname+'/'+fn + ' ' + dirname + '.log'),'r'))
-            except FileNotFoundError as err:
-                print('Could not open T in date ' + dirname + ': {0}'.format(err))
-                found[-1]=False #if file is not found, replace True with False
-                continue
-        
-        # If all elements of files present are false, skip this day
-        filespresent = False
-        for vv in found:
-            if vv:
-                filespresent = True
-                break #at least one file is present for this day
-        if not filespresent:
-            continue #skip this day
-        
-        #flist is in general shorter than found (found should always be len(fnames) while flist will only have found files)
-        for lines in zip(*flist):
-            #Get the timestamp from the first file and add to outline
-            line = lines[0].strip()
-            line = line.split(',')
-            line = line[0] + ' ' + line[1]
-            mydatetime = datetime.datetime.strptime(line,'%d-%m-%y %H:%M:%S')
-            t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
-            # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
-            outline = str(t)
-            ii = 0 #counter for lines (which has the same length as flist)
+    for k,i in enumerate(chs):
+        fnames = [('CH%1d %s' % (i,y)) for y in rt]
+        outfile = open(filenamesT[k],'w')
+        titlelineT = 'Time CH{} (s), '.format(i) + ', '.join([('CH%1d %s (%s)' % (i,y,z)) for y,z in zip(rt,units)])
+        outfile.write("#" + titlelineT + '\n')
+        for mydate in date_list:
+            dirname = mydate.strftime("%y-%m-%d")
+            flist = [] #list of open files
+            found = [] #list of boolean of present files
+            for fn in fnames:
+                try: #I add true to found for every file
+                    found.append(True)
+                    flist.append(open(os.path.normpath(location + '/' + dirname+'/'+fn + ' ' + dirname + '.log'),'r'))
+                except FileNotFoundError as err:
+                    print('Could not open T in date ' + dirname + ': {0}'.format(err))
+                    found[-1]=False #if file is not found, replace True with False
+                    continue
+            
+            # If all elements of files present are false, skip this day
+            filespresent = False
             for vv in found:
-                if vv: #if file was present, process line and increment ii for the next element
-                    line = lines[ii]
-                    ii+=1
-                    line = line.split(',')
-                    x = float(line[2])
-                    outline = outline + ', %.5e' % x
-                elif not vv: #if file was not present, leave ii at its current value and write -1. to line
-                    outline = outline + ', %.5e' % -1.
-            outfile.write(outline) #write line to file
-            outfile.write('\n') #next line
-        for f in flist:
-            f.close()
-    outfile.close()
+                if vv:
+                    filespresent = True
+                    break #at least one file is present for this day
+            if not filespresent:
+                continue #skip this day
+            
+            #flist is in general shorter than found (found should always be len(fnames) while flist will only have found files)
+            for lines in zip(*flist):
+                #Get the timestamp from the first file and add to outline
+                line = lines[0].strip()
+                line = line.split(',')
+                line = line[0] + ' ' + line[1]
+                mydatetime = datetime.datetime.strptime(line,'%d-%m-%y %H:%M:%S')
+                t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
+                # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
+                outline = str(t)
+                ii = 0 #counter for lines (which has the same length as flist)
+                for vv in found:
+                    if vv: #if file was present, process line and increment ii for the next element
+                        line = lines[ii]
+                        ii+=1
+                        line = line.split(',')
+                        x = float(line[2])
+                        outline = outline + ', %.5e' % x
+                    elif not vv: #if file was not present, leave ii at its current value and write -1. to line
+                        outline = outline + ', %.5e' % -1.
+                outfile.write(outline) #write line to file
+                outfile.write('\n') #next line
+            for f in flist:
+                f.close()
+        outfile.close()
 
     outfile = open(filenameP,'w')
     outfile.write("#" + titlelineP + '\n')
@@ -361,6 +381,6 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
         fileComp.close()
     outfile.close()
 
-    mydata = bfdata(datetime1,datetime2,filenameT,filenameP,filenameFlow,filenameComp)
+    mydata = bfdata(datetime1,datetime2,filenamesT,filenameP,filenameFlow,filenameComp)
 
     return mydata
