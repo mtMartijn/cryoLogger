@@ -2,6 +2,7 @@ import datetime
 import os
 import sys
 import os.path
+import numpy as np
 
 class bfdata:
     def __init__(self,dt1,dt2,ffsT,ffP,ffFlow,ffComp):
@@ -242,6 +243,7 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
             mydata = bfdata(datetime1,datetime2,filenamesT,filenameP,filenameFlow,filenameComp)
             return mydata
 
+
     print("Starting complete logfile generation for dates " + datetime1.strftime("%y-%m-%d") + ' to ' + datetime2.strftime("%y-%m-%d") + '...')
 
 
@@ -254,10 +256,7 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
     #chs = [1,2,5,6]
     titlelineP = 'Time Maxigauge (s), ' + ', '.join(['Pressure CH%d (mbar)' % x for x in range(1,7)])
     titlelineFlow = 'Time Flow (s), Flow (mmol/s)'
-    compvars = ['cptempwi','cptempwo','cptemph','cptempo','cpttime','cperrcode','cpavgl','cpavgh','ctrl_pres']
-    compunits = ['C','C','C','C','min','','psi','psi','']
-    titlelineComp = 'Time Comp (s), ' + ', '.join(['{} ({})'.format(a,b) for a,b in zip(compvars,compunits)])
-    
+
     for k,i in enumerate(chs):
         fnames = [('CH%1d %s' % (i,y)) for y in rt]
         outfile = open(filenamesT[k],'w')
@@ -358,6 +357,15 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
         fileFlow.close()
     outfile.close()
     
+
+    compvars = ['nxdsf', 'nxdsct', 'nxdst', 'nxdsbs', 'nxdstrs', 'tc400errorcode', 'tc400ovtempelec',
+        'tc400ovtemppump', 'tc400setspdatt', 'tc400pumpaccel', 'tc400commerr', 'ctrl_pres', 'cpastate',
+        'cparun', 'cpawarn', 'cpaerr', 'cpatempwi', 'cpatempwo', 'cpatempo', 'cpatemph', 'cpalp',
+        'cpalpa', 'cpahp', 'cpahpa', 'cpadp', 'cpacurrent', 'cpahours', 'cpapscale', 'cpatscale',
+        'cpasn', 'cpamodel']
+    compunits = ['' for x in compvars] #['C','C','C','C','min','','psi','psi','']
+    titlelineComp = 'Time Comp (s), ' + ', '.join(['{} ({})'.format(a,b) for a,b in zip(compvars,compunits)])
+
     outfile = open(filenameComp,'w')
     outfile.write("#" + titlelineComp + '\n')
     for mydate in date_list:
@@ -374,7 +382,15 @@ def BFjoinfiles(datetime1,datetime2,location,logfoldername,force):
             t = mydatetime.replace(tzinfo=datetime.timezone.utc).timestamp() #To correct for the fact that we are not in UTC time zone
             # Could produce strange results when DST is applied (an hour of repeated or missing time stamps).
             outfile.write(str(t))
-            dataline = [float(x) for x in line[3::2] ]
+            presentvars = line[2::2]
+            presentvalues = line[3::2]
+            dataline = np.ones(len(compvars))*-1.
+            for jj,v in enumerate(compvars):
+                try:
+                    ii = presentvars.index(v)
+                    dataline[jj] = float(presentvalues[ii])
+                except ValueError:
+                    pass
             for x in dataline:
                 outfile.write(', %.4e' % x)
             outfile.write('\n')

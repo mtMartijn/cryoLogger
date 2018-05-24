@@ -8,6 +8,7 @@ import concat
 import sys
 from pygubu.builder import ttkstdwidgets
 import configparser
+from tkinter import filedialog
 
 class Application:
     def __init__(self, master):
@@ -25,7 +26,10 @@ class Application:
             'joinlogs': self.joinlogs,
             'isdate': self.isdate,
             'plot': self.plot,
-            'gnucommand': self.gnucommand
+            'gnucommand': self.gnucommand,
+            'today_start': self.today_start,
+            'today_end': self.today_end,
+            'browse_folder': self.browse_folder
         }
 
         builder.connect_callbacks(callbacks)
@@ -34,6 +38,7 @@ class Application:
         self.enddate = self.builder.get_object('enddate')
         self.loglocation = self.builder.get_object('loglocation')
         self.plotbutton = self.builder.get_object('plotbutton')
+        self.browsebutton = self.builder.get_object('browsebutton')
         self.gnurunbutton = self.builder.get_object('gnurunbutton')
         self.listaxis1 = self.builder.get_object('listaxis1')
         self.listaxis2 = self.builder.get_object('listaxis2')
@@ -42,6 +47,11 @@ class Application:
         self.gnuform = self.builder.get_object('gnuplotformentry')
         self.forcelog = self.builder.get_variable('forcelog')
         self.logtype = self.builder.get_variable('logtype')
+        self.usetoday_start = self.builder.get_object('usetoday_start')
+        self.usetoday_end = self.builder.get_object('usetoday_end')
+        self.usetoday_start_bool = self.builder.get_variable('today_start_bool')
+        self.usetoday_end_bool = self.builder.get_variable('today_end_bool')
+
                
         config = configparser.ConfigParser()
         config.sections()
@@ -61,9 +71,33 @@ class Application:
         self.g('set timefmt "%s"')
         self.g('set format x "%d/%m/%y\\n%H:%M:%S"')
 
+    def today_start(self):
+        self.startdate.delete(0,tk.END)
+        today = datetime.today()
+        self.startdate.insert(0,today.strftime('%d-%m-%y'))
+        if self.usetoday_start_bool.get():
+            self.startdate.config(state='readonly')
+        else:
+            self.startdate.config(state='normal')
+
+    def today_end(self):
+        self.enddate.delete(0,tk.END)
+        today = datetime.today()
+        self.enddate.insert(0,today.strftime('%d-%m-%y'))
+        if self.usetoday_end_bool.get():
+            self.enddate.config(state='readonly')
+        else:
+            self.enddate.config(state='normal')
+
     def joinlogs(self):
-        date1 = datetime.strptime(self.startdate.get(), '%d-%m-%Y')
-        date2 = datetime.strptime(self.enddate.get(), '%d-%m-%Y')
+        try:
+            date1 = datetime.strptime(self.startdate.get(), '%d-%m-%Y')
+        except ValueError:
+            date1 = datetime.strptime(self.startdate.get(), '%d-%m-%y')
+        try:
+            date2 = datetime.strptime(self.enddate.get(), '%d-%m-%Y')
+        except ValueError:
+            date2 = datetime.strptime(self.enddate.get(), '%d-%m-%y')
         self.mylog = concat.joinfiles(date1,date2,self.loglocation.get(),type=self.logtype.get(),force=self.forcelog.get())
         self.plotbutton.config(state="normal")
         self.gnurunbutton.config(state="normal")
@@ -73,6 +107,13 @@ class Application:
         for ss in myvars:
             self.listaxis1.insert(tk.END, ss)
             self.listaxis2.insert(tk.END, ss)
+
+    def browse_folder(self):
+        filename = filedialog.askdirectory()
+        #folder_path.set(filename)
+        self.loglocation.delete(0,tk.END)
+        self.loglocation.insert(0,filename)
+        return
 
 
     def plot(self):
