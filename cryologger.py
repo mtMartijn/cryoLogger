@@ -9,6 +9,7 @@ import sys
 from pygubu.builder import ttkstdwidgets
 import configparser
 from tkinter import filedialog
+import platform
 
 class Application:
     def __init__(self, master):
@@ -29,7 +30,8 @@ class Application:
             'gnucommand': self.gnucommand,
             'today_start': self.today_start,
             'today_end': self.today_end,
-            'browse_folder': self.browse_folder
+            'browse_folder': self.browse_folder,
+            'saveini': self.saveini
         }
 
         builder.connect_callbacks(callbacks)
@@ -66,10 +68,30 @@ class Application:
         self.forcelog.set(int(config['DEFAULT']['forcelog']))
         
         self.g = Gnuplot.Gnuplot(debug=1)
-        self.g('set terminal qt')
+        #Set the correct terminal for different platforms
+        ptf = platform.system()
+        if ptf == 'Windows':
+            self.g('set terminal wxt')
+        else:
+            self.g('set terminal qt')
         self.g('set xdata time')
         self.g('set timefmt "%s"')
         self.g('set format x "%d/%m/%y\\n%H:%M:%S"')
+
+    #Overwrite initial settings file
+    def saveini(self):
+        with open('./cryologger.ini','w') as ff:
+            ff.write('[DEFAULT]\n')
+            mystr = self.loglocation.get()
+            ff.write('loglocation = {}\n'.format(mystr))
+            mystr = self.startdate.get()
+            ff.write('startdate = {}\n'.format(mystr))
+            mystr = self.enddate.get()
+            ff.write('enddate = {}\n'.format(mystr))
+            mystr = self.logtype.get()
+            ff.write('logtype = {}\n'.format(mystr))
+            mystr = int(self.forcelog.get())
+            ff.write('forcelog = {}\n'.format(mystr))
 
     def today_start(self):
         self.startdate.delete(0,tk.END)
